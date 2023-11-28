@@ -1,0 +1,1 @@
+pyinstaller -i LOGO.ico '.\圖片壓縮 v13.py' -n "圖片壓縮器 v13" --onefile
