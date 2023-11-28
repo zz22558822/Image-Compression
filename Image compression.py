@@ -175,9 +175,14 @@ try:
             print("總計縮減量:", round(total_saved_drag / 1024, 1), "MB")
             print("總壓縮比例:", total_saved_percentage_drag, "%")
     else:
-        # 確定目錄路徑
+        # 確定目錄路徑(EXE版本)
         input_folder_name = os.path.join(executable_dir, 'input')
         output_folder_name = os.path.join(executable_dir, 'output')
+
+        # 確定目錄路徑(純py版本)
+        # input_folder_name = 'input'  # 設置輸入資料夾名稱
+        # output_folder_name = 'output'  # 設置輸出資料夾名稱
+        
         compress_images_in_folder(input_folder_name, output_folder_name, quality=85)
 
 except Exception as e:
