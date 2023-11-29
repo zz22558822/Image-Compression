@@ -9,6 +9,9 @@ executable_dir = os.path.dirname(sys.executable)
 def convert_heic_to_jpg(input_folder, output_folder):
     register_heif_opener()
 
+    total_original_size_kb = 0
+    total_compressed_size_kb = 0
+
     # 檢查輸出資料夾是否存在，如果不存在則建立
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
@@ -33,9 +36,13 @@ def convert_heic_to_jpg(input_folder, output_folder):
                 print(f"成功將 {heic_file_name} 轉換為 {output_jpg_name}")
 
                 # 壓縮 JPEG 檔案
-                compress_image(output_jpg_path, output_folder)
+                original, compressed = compress_image(output_jpg_path, output_folder)
 
-    return True
+                # 累加大小到變數當中
+                total_original_size_kb += original
+                total_compressed_size_kb += compressed
+
+    return total_original_size_kb, total_compressed_size_kb
 
 def compress_image(image_path, output_folder, quality=85):
     # 檢查並創建輸出檔案夾
@@ -83,9 +90,38 @@ def compress_image(image_path, output_folder, quality=85):
         return original_size, compressed_size
     
     elif extension.lower() == '.heic':  # 檢查是否為 HEIC 格式
-        print(f"檢測到 {file_name}.HEIC 格式圖片，請將其移動到 input 資料夾並直接運行本程序。")
-        print("---------------------------------------------------------------")
-        return 0, 0  # 直接返回，避免繼續程式流程
+        register_heif_opener()
+
+        output_path = os.path.join(output_folder_path, f"{file_name}.jpg")
+
+        original_size = int(os.path.getsize(image_path)) // 1024
+        compressed_size = original_size  # 初始壓縮大小等於原始大小
+
+        try:
+            # 使用 Pillow 的 HEIF 插件讀取 HEIC 檔案
+            image = Image.open(image_path)
+
+            # 儲存為 JPEG 格式
+            image.save(output_path, format="JPEG")
+
+            # 取得檔案名稱
+            heic_file_name = os.path.basename(image_path)
+            output_jpg_name = os.path.basename(output_path)
+
+            print(f"成功將 {heic_file_name} 轉換為 {output_jpg_name}")
+
+            original_size = int(os.path.getsize(image_path)) // 1024
+            compressed_size = int(os.path.getsize(output_path)) // 1024
+
+            # 壓縮 JPEG 檔案
+            original_size, compressed_size = compress_image(output_path, output_folder)
+
+        except Exception as e:
+            print(f"轉換失敗: {str(e)}")
+
+
+        
+        return original_size, compressed_size
 
     else:
         # 非圖片檔案的提示
@@ -95,10 +131,20 @@ def compress_image(image_path, output_folder, quality=85):
 
 def compress_images_in_folder(input_folder, output_folder, quality=85):
     # 處理 HEIC 檔案轉換為 JPEG
-    if not convert_heic_to_jpg(input_folder, output_folder):
-        print("未能完成 HEIC 檔案轉換，請檢查程式及檔案路徑。")
-        print("---------------------------------------------------------------")
-        return
+    # if not convert_heic_to_jpg(input_folder, output_folder):
+    #     print("未能完成 HEIC 檔案轉換，請檢查程式及檔案路徑。")
+    #     print("---------------------------------------------------------------")
+    #     return
+
+    total_original_size_kb = 0
+    total_compressed_size_kb = 0
+
+    original, compressed = convert_heic_to_jpg(input_folder, output_folder)
+
+    # 累加大小到變數當中
+    total_original_size_kb += original
+    total_compressed_size_kb += compressed
+
 
     current_path = os.path.dirname(os.path.abspath(__file__))
     input_folder_path = os.path.join(current_path, input_folder)
@@ -107,8 +153,7 @@ def compress_images_in_folder(input_folder, output_folder, quality=85):
     if not os.path.exists(output_folder_path):
         os.makedirs(output_folder_path)
 
-    total_original_size_kb = 0
-    total_compressed_size_kb = 0
+
 
     image_files = [f for f in os.listdir(input_folder_path) if os.path.isfile(os.path.join(input_folder_path, f))]
 
@@ -145,8 +190,7 @@ def compress_images_in_folder(input_folder, output_folder, quality=85):
     total_saved_mb = (total_original_size_kb - total_compressed_size_kb) / 1024
     total_saved_percentage = round((total_saved_mb / (total_original_size_kb / 1024)) * 100, 1)
 
-    print(">>> .HEIC 容量不列入計算內 <<<")
-    print("")
+    print()
     print("\n原始總容量:", round(total_original_size_kb / 1024, 1), "MB")
     print("壓縮總容量:", round(total_compressed_size_kb / 1024, 1), "MB")
     print("總計縮減量:", round(total_saved_mb, 1), "MB")
@@ -154,8 +198,12 @@ def compress_images_in_folder(input_folder, output_folder, quality=85):
 
 
 try:
+    # 拖曳運行
     if len(sys.argv) > 1:
-        output_folder_name = 'output'
+        ## 確定目錄路徑(exe)
+        output_folder_name = os.path.join(executable_dir, 'output')
+        # 確定目錄路徑(py)
+        # output_folder_name = 'output'
         total_original_drag = 0
         total_compressed_drag = 0
 
@@ -175,14 +223,12 @@ try:
             print("總計縮減量:", round(total_saved_drag / 1024, 1), "MB")
             print("總壓縮比例:", total_saved_percentage_drag, "%")
     else:
-        # 確定目錄路徑(EXE版本)
+        # 確定目錄路徑(exe)
         input_folder_name = os.path.join(executable_dir, 'input')
         output_folder_name = os.path.join(executable_dir, 'output')
-
-        # 確定目錄路徑(純py版本)
+        # 確定目錄路徑(py)
         # input_folder_name = 'input'  # 設置輸入資料夾名稱
         # output_folder_name = 'output'  # 設置輸出資料夾名稱
-        
         compress_images_in_folder(input_folder_name, output_folder_name, quality=85)
 
 except Exception as e:
@@ -192,5 +238,5 @@ except Exception as e:
         else:
             print(f"程式出現錯誤：{e}")
         
-print("")
+print()
 os.system('pause')
